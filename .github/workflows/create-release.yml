@@ -30,6 +30,9 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
+    - name: Checkout lua-mods-libs
+      uses: actions/checkout@v4 
+
     - name: Set environment variables
       run: |
         $name = Split-Path -Path (Get-Location) -Leaf
@@ -46,13 +49,14 @@ jobs:
         $releaseDir = '${{ env.RELEASE_DIR }}'
         $version = '${{ env.VERSION }}'
         $targetDir = "$releaseDir\$name"
-        $scriptsDir = "$targetDir\Scripts"
-        New-Item -Path . -Name $scriptsDir -ItemType 'directory'
+        New-Item -Path . -Name $targetDir -ItemType 'directory'
+        dir
+        dir "$targetDir"
+        Move-Item -Path 'Scripts' -Destination "$targetDir"
+        dir "$targetDir"
         New-Item -Path . -Name "$targetDir\enabled.txt" -ItemType 'file'
         New-Item -Path "$targetDir" -Name "version.txt" -ItemType "file" -Value $version
         Move-Item -Path @('.luarc.json', 'options.example.lua', 'params.example.lua') -Destination "$targetDir"
-        Move-Item -Path @('Scripts\main.lua') -Destination "$targetDir\Scripts"
-        Move-Item -Path .lib -Destination "$scriptsDir\lib"
 
     - name: Create ZIP archive
       run: |
