@@ -225,8 +225,17 @@ local function snapToGrid(pA_0, p_actor, arcLength, planeAngle)
    local pointA_0Z = { X = pA_0.X, Y = pA_0.Y, Z = pA_0.Z + 1 } ---@type FVector
    log.debug(string.format("pointA_0Z     (%s, %s, %s)", pointA_0Z.X, pointA_0Z.Y, pointA_0Z.Z))
 
-   local vectorOnPlane = mathlib:RotateAngleAxis(pointA_0Z, planeAngle, pA_0)
-   log.debug(string.format("vectorOnPlane     (%s, %s, %s)", vectorOnPlane.X, vectorOnPlane.Y, vectorOnPlane.Z))
+   local p_vectorOnPlane = mathlib:RotateAngleAxis(pointA_0Z, planeAngle, pA_0)
+   log.debug(string.format("p_vectorOnPlane     (%s, %s, %s)", p_vectorOnPlane.X, p_vectorOnPlane.Y, p_vectorOnPlane.Z))
+
+   local vectorOnPlane = {
+      X = p_vectorOnPlane.X - pA_0.X,
+      Y = p_vectorOnPlane.Y - pA_0.Y,
+      Z = p_vectorOnPlane.Z - pA_0.Z
+   }
+   local vectorOnPlane_unit = normalizeVector(vectorOnPlane)
+   log.debug(string.format("vectorOnPlane_unit     (%s, %s, %s)",
+      vectorOnPlane_unit.X, vectorOnPlane_unit.Y, vectorOnPlane_unit.Z))
 
    -- The length of the vector must be equal to the radius of the sphere (pA_0 length).
    -- We resize the vector, because the player can place the object anywhere in the game.
@@ -242,7 +251,7 @@ local function snapToGrid(pA_0, p_actor, arcLength, planeAngle)
    -- The angle between 𝑢 and 𝑣 = 90°.
 
    -- cross product (or vector product)
-   local u = mathlib:Cross_VectorVector(normalizeVector(pA_0), vectorOnPlane)
+   local u = mathlib:Cross_VectorVector(normalizeVector(pA_0), vectorOnPlane_unit)
    local u_unit = normalizeVector(u)
 
    local v = mathlib:Cross_VectorVector(pA_0, u)
