@@ -1,11 +1,3 @@
-LOG_LEVEL = "INFO" ---@type _LogLevel
-MIN_LEVEL_OF_FATAL_ERROR = "ERROR" ---@type _LogLevel
-ACTOR_REFERENCE_LOCATION = { X = 0, Y = 0, Z = 0 } ---@type FVector
-ARC_LENGTH = 0 ---@type number Orange arc of circles.
-PLANE_ANGLE = 0 ---@type number
-U_UNIT = { X = 0, Y = 0, Z = 0 } ---@type FVector
-V_UNIT = { X = 0, Y = 0, Z = 0 } ---@type FVector
-
 ---@class FOutputDevice
 ---@field Log function
 
@@ -13,8 +5,9 @@ local options = {}
 
 local UEHelpers = require("UEHelpers")
 local logging = require("lib.lua-mods-libs.logging")
+modules = "lib.LEEF-math.modules." ---@diagnostic disable-line: lowercase-global
+local vec3 = require("lib.LEEF-math.modules.vec3")
 
-local mathlib = UEHelpers.GetKismetMathLibrary()
 local currentModDirectory = debug.getinfo(1, "S").source:match("@?(.+\\Mods\\[^\\]+)")
 
 ---@param filename string
@@ -61,11 +54,70 @@ local function loadParameters()
    dofile(file)
 end
 
+-- Initialization
+
+LOG_LEVEL = "INFO" ---@type _LogLevel
+MIN_LEVEL_OF_FATAL_ERROR = "ERROR" ---@type _LogLevel
+
 options = loadOptions()
 loadParameters()
+
 local log = logging.new(LOG_LEVEL, MIN_LEVEL_OF_FATAL_ERROR)
+LOG_LEVEL = nil
+MIN_LEVEL_OF_FATAL_ERROR = nil
+
+local actor_reference_location = vec3.new(
+   ACTOR_REFERENCE_LOCATION.X,
+   ACTOR_REFERENCE_LOCATION.Y,
+   ACTOR_REFERENCE_LOCATION.Z)
+local arc_length = ARC_LENGTH ---@type number Orange arc of circles.
+local plane_angle = PLANE_ANGLE ---@type number
+local U_UNIT = vec3.new(0, 0, 0)
+local V_UNIT = vec3.new(0, 0, 0)
 
 --------------------------------------------------
+---
+------@param v FVector
+---@return number
+local function getVectorLength(v)
+   return math.sqrt((v.x * v.x) + (v.y * v.y) + (v.z * v.z))
+end
+
+---@param v vec3
+---@return vec3
+local function normalizeVector(v)
+   local norm = getVectorLength(v)
+
+   if norm > 0 then
+      return vec3.new(v.x / norm, v.y / norm, v.z / norm)
+   end
+
+   return v
+end
+
+---@param v1 vec3
+---@param v2 vec3
+---@return number
+local function getDotProduct(v1, v2)
+   return (v1.x * v2.x) + (v1.y * v2.y) + (v1.z * v2.z)
+end
+
+---@param v1 vec3
+---@param v2 vec3
+---@return number
+local function getAngleBetweenVectors(v1, v2)
+   return math.acos(getDotProduct(normalizeVector(v1), normalizeVector(v2)))
+end
+
+---@param point vec3
+---@param planeBase vec3
+---@param planeNormal_unit vec3 Vector must be normalized (length = 1).
+---@return vec3
+function vec3.projectPointOnToPlane(point, planeBase, planeNormal_unit)
+   --- https://dev.epicgames.com/documentation/en-us/unreal-engine/BlueprintAPI/Math/Vector/ProjectPointontoPlane
+   --- https://fr.mathworks.com/matlabcentral/answers/183464-how-do-i-find-the-orthogonal-projection-of-a-point-onto-a-plane#answer_394659
+   return point - vec3.scale(planeNormal_unit, vec3.dot(point - planeBase, planeNormal_unit))
+end
 
 local function writeOptionsFile()
    local file = io.open(currentModDirectory .. "\\params.lua", "w+")
@@ -75,9 +127,9 @@ local function writeOptionsFile()
       [[ACTOR_REFERENCE_LOCATION={X=%.16g,Y=%.16g,Z=%.16g}
 ARC_LENGTH=%.16g
 PLANE_ANGLE=%.16g
-]], ACTOR_REFERENCE_LOCATION.X, ACTOR_REFERENCE_LOCATION.Y, ACTOR_REFERENCE_LOCATION.Z,
-      ARC_LENGTH,
-      PLANE_ANGLE))
+]], actor_reference_location.x, actor_reference_location.y, actor_reference_location.z,
+      arc_length,
+      plane_angle))
 
    file:close()
 end
@@ -92,14 +144,14 @@ local function round2(num, numDecimalPlaces)
    return math.floor(num * mult + 0.5) / mult
 end
 
----@return FVector
+---@return vec3
 local function getPlanetCenter()
    local playerController = UEHelpers:GetPlayerController() ---@cast playerController APlayControllerInstance_C
    local homeBody = playerController.HomeBody   -- 0xC98
    local rootComponent = homeBody.RootComponent -- 0x160
 
    local loc = rootComponent.RelativeLocation
-   return { X = loc.X, Y = loc.Y, Z = loc.Z }
+   return vec3.new(loc.X, loc.Y, loc.Z)
 end
 
 local function GetActorFromHitResult(HitResult)
@@ -110,38 +162,6 @@ local function GetActorFromHitResult(HitResult)
    else
       return HitResult.HitObjectHandle.ReferenceObject:Get()
    end
-end
-
----@param v FVector
----@return number
-local function getVectorLength(v)
-   return math.sqrt((v.X * v.X) + (v.Y * v.Y) + (v.Z * v.Z))
-end
-
----@param v FVector
----@return FVector
-local function normalizeVector(v)
-   local norm = getVectorLength(v)
-
-   if norm > 0 then
-      return { X = v.X / norm, Y = v.Y / norm, Z = v.Z / norm }
-   end
-
-   return v
-end
-
----@param v1 FVector
----@param v2 FVector
----@return number
-local function getDotProduct(v1, v2)
-   return (v1.X * v2.X) + (v1.Y * v2.Y) + (v1.Z * v2.Z)
-end
-
----@param v1 FVector
----@param v2 FVector
----@return number
-local function getAngleBetweenVectors(v1, v2)
-   return math.acos(getDotProduct(normalizeVector(v1), normalizeVector(v2)))
 end
 
 local function setActorReferenceLocation()
@@ -157,19 +177,16 @@ local function setActorReferenceLocation()
    local hitActor = GetActorFromHitResult(hitResult)
    log.info(string.format("HitActor: %s\n", hitActor:GetFullName()))
 
-   ACTOR_REFERENCE_LOCATION = hitActor:K2_GetActorLocation()
+   local actorLoc = hitActor:K2_GetActorLocation()
+   actor_reference_location = vec3.new(actorLoc.X, actorLoc.Y, actorLoc.Z)
 
    local planetCenter = getPlanetCenter()
-   ACTOR_REFERENCE_LOCATION = {
-      X = ACTOR_REFERENCE_LOCATION.X - planetCenter.X,
-      Y = ACTOR_REFERENCE_LOCATION.Y - planetCenter.Y,
-      Z = ACTOR_REFERENCE_LOCATION.Z - planetCenter.Z
-   }
+   actor_reference_location = actor_reference_location - planetCenter
 
    log.info(string.format("ACTOR_REFERENCE_LOCATION { X = %.16g, Y = %.16g, Z = %.16g }",
-      ACTOR_REFERENCE_LOCATION.X,
-      ACTOR_REFERENCE_LOCATION.Y,
-      ACTOR_REFERENCE_LOCATION.Z))
+      actor_reference_location.x,
+      actor_reference_location.y,
+      actor_reference_location.z))
 
    writeOptionsFile()
 end
@@ -196,13 +213,43 @@ local function base(n, b)
    return sign .. table.concat(t, "")
 end
 
----@param pA_0 FVector
----@param p_actor FVector Actor location.
+---https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/Kismet/UKismetMathLibrary/FindLookAtRotation
+---@param start vec3
+---@param target vec3
+---@return FRotator
+function vec3.findLookAtRotation(start, target)
+   local d = target - start ---@type vec3 direction vector
+   local yaw = math.atan(d.y, d.x)
+
+   local d_norm_xOy = math.sqrt(d.x * d.x + d.y * d.y)
+   local pitch = math.atan(d.z, d_norm_xOy)
+
+   return { Pitch = math.deg(pitch), Yaw = math.deg(yaw), Roll = 0 }
+end
+
+---Same as vec3.angle_to but the cosine is forced into the interval [-1;1].
+---@param a any
+---@param b any
+---@return number
+function vec3.angle_to_safe(a, b)
+   --[[ In this example, the cosine is greater than 1.
+local u = vec3.new(-73947.640625, 50619.046875, 81827.1953125)
+local v = vec3.new(-73947.640625, 50619.04687499999, 81827.19531250001)
+local c = vec3.dot(u, v) / (vec3.len(u) * vec3.len(v))
+print(string.format("cos=%.64g", c)) -- cos=1.0000000000000002220446049250313080847263336181640625 (!!!)
+print(math.acos(c)) -- -nan(ind)
+See also: ---https://fr.mathworks.com/matlabcentral/answers/101590-how-can-i-determine-the-angle-between-two-vectors-in-matlab ]]
+   local v = math.max(-1, math.min(1, a:normalize():dot(b:normalize())))
+   return math.acos(v)
+end
+
+---@param pA_0 vec3
+---@param p_actor vec3 Actor location.
 ---@param arcLength number
 ---@param planeAngle number
----@return FVector, FVector
+---@return vec3, vec3
 local function snapToGrid(pA_0, p_actor, arcLength, planeAngle)
-   if pA_0.X == nil or pA_0.Y == nil or pA_0.Z == nil then
+   if pA_0.x == nil or pA_0.y == nil or pA_0.z == nil then
       log.error("You must define an ACTOR_REFERENCE_LOCATION (place the cursor on an object and press F5).")
    end
 
@@ -210,39 +257,38 @@ local function snapToGrid(pA_0, p_actor, arcLength, planeAngle)
    assert(arcLength ~= 0, "arcLength cannot be equal to 0.")
 
    local planetCenter = getPlanetCenter()
-   log.debug(string.format("planetCenter     (%s, %s, %s)", planetCenter.X, planetCenter.Y, planetCenter.Z))
+   log.debug(string.format("planetCenter     (%.16g, %.16g, %.16g)", planetCenter.x, planetCenter.y, planetCenter.z))
 
-   p_actor = {
-      X = p_actor.X - planetCenter.X,
-      Y = p_actor.Y - planetCenter.Y,
-      Z = p_actor.Z - planetCenter.Z
-   }
+   p_actor = vec3.new(
+      p_actor.x - planetCenter.x,
+      p_actor.y - planetCenter.y,
+      p_actor.z - planetCenter.z)
 
-   local r_0 = getVectorLength(pA_0)
+   local r_0 = vec3.len(pA_0)
    log.debug("r_0     " .. r_0)
 
    -- segment (pA_0, pointA_0Z) is parallel to the Z axis
-   local pointA_0Z = { X = pA_0.X, Y = pA_0.Y, Z = pA_0.Z + 1 } ---@type FVector
-   log.debug(string.format("pointA_0Z     (%s, %s, %s)", pointA_0Z.X, pointA_0Z.Y, pointA_0Z.Z))
+   local pointA_0Z = vec3.new(pA_0.x, pA_0.y, pA_0.z + 1)
+   log.debug(string.format("pointA_0Z     (%.16g, %.16g, %.16g)", pointA_0Z.x, pointA_0Z.y, pointA_0Z.z))
 
-   local p_vectorOnPlane = mathlib:RotateAngleAxis(pointA_0Z, planeAngle, pA_0)
-   log.debug(string.format("p_vectorOnPlane     (%s, %s, %s)", p_vectorOnPlane.X, p_vectorOnPlane.Y, p_vectorOnPlane.Z))
+   local p_vectorOnPlane = vec3.rotate(pointA_0Z, math.rad(planeAngle), pA_0)
+   log.debug(string.format("p_vectorOnPlane     (%.16g, %.16g, %.16g)", p_vectorOnPlane.x, p_vectorOnPlane.y,
+      p_vectorOnPlane.z))
 
-   local vectorOnPlane = {
-      X = p_vectorOnPlane.X - pA_0.X,
-      Y = p_vectorOnPlane.Y - pA_0.Y,
-      Z = p_vectorOnPlane.Z - pA_0.Z
-   }
-   local vectorOnPlane_unit = normalizeVector(vectorOnPlane)
-   log.debug(string.format("vectorOnPlane_unit     (%s, %s, %s)",
-      vectorOnPlane_unit.X, vectorOnPlane_unit.Y, vectorOnPlane_unit.Z))
+   local vectorOnPlane = vec3.new(
+      p_vectorOnPlane.x - pA_0.x,
+      p_vectorOnPlane.y - pA_0.y,
+      p_vectorOnPlane.z - pA_0.z)
+   local vectorOnPlane_unit = vec3.normalize(vectorOnPlane)
+   log.debug(string.format("vectorOnPlane_unit     (%.16g, %.16g, %.16g)",
+      vectorOnPlane_unit.x, vectorOnPlane_unit.y, vectorOnPlane_unit.z))
 
    -- The length of the vector must be equal to the radius of the sphere (pA_0 length).
    -- We resize the vector, because the player can place the object anywhere in the game.
    -- The object will not necessarily be placed correctly on the planet.
-   local unit = normalizeVector(p_actor)
-   p_actor = { X = unit.X * r_0, Y = unit.Y * r_0, Z = unit.Z * r_0 }
-   log.debug(string.format("actor     (%s, %s, %s)", p_actor.X, p_actor.Y, p_actor.Z))
+   local unit = vec3.normalize(p_actor)
+   p_actor = vec3.new(unit.x * r_0, unit.y * r_0, unit.z * r_0)
+   log.debug(string.format("p_actor     (%.16g, %.16g, %.16g)", p_actor.x, p_actor.y, p_actor.z))
 
    -- The vectors pA_0 and userVector are coplanar.
    -- The vector userVector determines the plane position and rotation.
@@ -251,26 +297,27 @@ local function snapToGrid(pA_0, p_actor, arcLength, planeAngle)
    -- The angle between 𝑢 and 𝑣 = 90°.
 
    -- cross product (or vector product)
-   local u = mathlib:Cross_VectorVector(normalizeVector(pA_0), vectorOnPlane_unit)
-   local u_unit = normalizeVector(u)
+   local u = vec3.cross(pA_0, vectorOnPlane)
+   local u_unit = vec3.normalize(u)
 
-   local v = mathlib:Cross_VectorVector(pA_0, u)
-   local v_unit = normalizeVector(v)
+   local v = vec3.cross(pA_0, u)
+   local v_unit = vec3.normalize(v)
 
    U_UNIT = u_unit
    V_UNIT = v_unit
 
-   local sign_0 = (u_unit.X * p_actor.X) + (u_unit.Y * p_actor.Y) + (u_unit.Z * p_actor.Z)
+   local sign_0 = (u_unit.x * p_actor.x) + (u_unit.y * p_actor.y) + (u_unit.z * p_actor.z)
    sign_0 = sign_0 < 0 and -1 or 1
-   local sign_1 = (v_unit.X * p_actor.X) + (v_unit.Y * p_actor.Y) + (v_unit.Z * p_actor.Z)
+   local sign_1 = (v_unit.x * p_actor.x) + (v_unit.y * p_actor.y) + (v_unit.z * p_actor.z)
    sign_1 = sign_1 < 0 and 1 or -1 -- /!\ inverted sign
 
    --#region Circular arc 1 ORANGE (left/right)
 
    -- GeoGebra: projection (point)
-   local projection = mathlib:ProjectPointOnToPlane(p_actor, { X = 0, Y = 0, Z = 0 }, u_unit)
+   local projection = vec3.projectPointOnToPlane(p_actor, vec3.zero, u_unit)
+
    -- GeoGebra: α (angle)
-   local angleAlpha = getAngleBetweenVectors(p_actor, projection)
+   local angleAlpha = vec3.angle_to_safe(p_actor, projection) -- angle in radians
 
    -- GeoGebra: arc_α (arc circle)
    local arcLength_0 = r_0 * angleAlpha
@@ -282,16 +329,16 @@ local function snapToGrid(pA_0, p_actor, arcLength, planeAngle)
    local theta_0 = arcLength / r_0
 
    -- pA_N means pA_(-)[0-9]. ex: pA_2, pA_-2, pA_15.
-   local pA_N = n_number == 0 and pA_0 or mathlib:RotateAngleAxis(pA_0, math.deg(n_number * theta_0), v)
+   local pA_N = n_number == 0 and pA_0 or vec3.rotate(pA_0, n_number * theta_0, v)
 
    local n_number_minus1 = n_number - 1 * sign_0
-   local pA_N_minus_1 = n_number - 1 == 0 and pA_0 or
-       mathlib:RotateAngleAxis(pA_0, math.deg(n_number_minus1 * theta_0), v)
+   local pA_N_minus_1 = n_number - 1 == 0 and pA_0 or vec3.rotate(pA_0, n_number_minus1 * theta_0, v)
    --#endregion
-   --#region Circular arc 2 BLACK (down/up)
-   local angleBeta = getAngleBetweenVectors(pA_0, projection)
 
-   local projectionLength = getVectorLength(projection)
+   --#region Circular arc 2 BLACK (down/up)
+   local angleBeta = vec3.angle_to_safe(pA_0, projection)
+
+   local projectionLength = vec3.len(projection)
 
    -- GeoGebra: arc_β (arc circle)
    local arcLength_1 = projectionLength * angleBeta
@@ -308,45 +355,55 @@ local function snapToGrid(pA_0, p_actor, arcLength, planeAngle)
 
    --#endregion
 
-   local newActorLocation = mathlib:RotateAngleAxis(pA_N, math.deg(n_letter * theta_N), u_unit)
-   local newActorLocation_minus1 = mathlib:RotateAngleAxis(pA_N_minus_1, math.deg(n_letter * theta_N_minus1), u_unit)
+   local newActorLocation = vec3.rotate(pA_N, n_letter * theta_N, u)
 
-   local angle_minus1 = getAngleBetweenVectors(newActorLocation, newActorLocation_minus1)
+   local newActorLocation_minus1 = vec3.rotate(pA_N_minus_1, n_letter * theta_N_minus1, u_unit)
+   local angle_minus1 = vec3.angle_to_safe(newActorLocation, newActorLocation_minus1)
    local arcLength_minus1 = angle_minus1 * r_0
 
-   newActorLocation = {
-      X = newActorLocation.X + planetCenter.X,
-      Y = newActorLocation.Y + planetCenter.Y,
-      Z = newActorLocation.Z + planetCenter.Z
-   }
+   newActorLocation = vec3.new(
+      newActorLocation.x + planetCenter.x,
+      newActorLocation.y + planetCenter.y,
+      newActorLocation.z + planetCenter.z)
 
    -- n_number is the number on the orange line
-   log.debug(string.format("newActorLocation     (number=%s, letter=%s)     (%s, %s, %s)", n_number, n_letter,
-      newActorLocation.X, newActorLocation.Y, newActorLocation.Z))
+   log.debug(string.format("newActorLocation     (number=%s, letter=%s)     (%.16g, %.16g, %.16g)", n_number, n_letter,
+      newActorLocation.x, newActorLocation.y, newActorLocation.z))
    log.debug(string.format("newActorLocation     {X = %s, Y = %s, Z = %s}",
-      newActorLocation.X, newActorLocation.Y, newActorLocation.Z))
+      newActorLocation.x, newActorLocation.y, newActorLocation.z))
 
    local scale = math.tointeger(math.max(1, 10 ^ (math.floor(math.log(r_0, 10)) - 1)))
    log.debug("scale     1/" .. scale)
 
-   local cmd = string.format('Execute({' ..
-      '"pA_0 = Point({%.16g, %.16g, %.16g})",' ..
-      '"p_actor = Point({%.16g, %.16g, %.16g})",' ..
-      '"r_0 = %.16g",' ..
-      '"arcLength = %.16g",' ..
-      '"planeAngle = %.16g°",' ..
-      '"error_x = x(newActorLocation) - %.16g",' ..
-      '"error_y = y(newActorLocation) - %.16g",' ..
-      '"error_z = z(newActorLocation) - %.16g"' ..
-      '})',
-      pA_0.X / scale, pA_0.Y / scale, pA_0.Z / scale,
-      p_actor.X / scale, p_actor.Y / scale, p_actor.Z / scale,
+   local fmt = 'Execute({' ..
+       '"pA_0 = Point({%.16g, %.16g, %.16g})",' ..
+       '"p_actor = Point({%.16g, %.16g, %.16g})",' ..
+       '"r_0 = %.16g",' ..
+       '"arcLength = %.16g",' ..
+       '"planeAngle = %.16g°",' ..
+       '"diff_x = x(newActorLocation) - %.16g",' ..
+       '"diff_y = y(newActorLocation) - %.16g",' ..
+       '"diff_z = z(newActorLocation) - %.16g"' ..
+       '})'
+   local cmd = string.format(fmt,
+      pA_0.x / scale, pA_0.y / scale, pA_0.z / scale,
+      p_actor.x / scale, p_actor.y / scale, p_actor.z / scale,
       r_0 / scale,
       math.max(arcLength / scale, 1),
       planeAngle,
-      newActorLocation.X / scale, newActorLocation.Y / scale, newActorLocation.Z / scale)
+      newActorLocation.x / scale, newActorLocation.y / scale, newActorLocation.z / scale)
 
    log.debug("GeoGebra command:\n\n" .. cmd .. "\n\n")
+
+   cmd = string.format(fmt,
+      pA_0.x, pA_0.y, pA_0.z,
+      p_actor.x, p_actor.y, p_actor.z,
+      r_0,
+      arcLength,
+      planeAngle,
+      newActorLocation.x, newActorLocation.y, newActorLocation.z)
+
+   log.debug("GeoGebra command (original data):\n\n" .. cmd .. "\n\n")
 
    log.info(string.format("Arc length between p%s_%s and p%s_%s: %.16g. Difference: %.16g.",
       base(n_letter, 26), n_number, base(n_letter, 26), n_number_minus1, arcLength_minus1, arcLength_minus1 - arcLength))
@@ -365,24 +422,29 @@ local function snapToGrid(pA_0, p_actor, arcLength, planeAngle)
    log.info(string.format("Point %s %s     letter=%s number=%s",
       base(n_letter, 26), n_number, n_letter, n_number))
 
+
+   log.debug(string.format("\n\n\nvec3.new(%.16g, %.16g, %.16g))\n\n\n", newActorLocation.x, newActorLocation.y,
+      newActorLocation.z))
+
+
    return newActorLocation, u_unit
 end
 
 ---@param actor AActor
----@param location FVector
----@param u_unit FVector
+---@param location vec3
+---@param u_unit vec3
 local function setNewRotation(actor, location, u_unit)
    ---@type FHitResult
    ---@diagnostic disable-next-line: missing-fields
    local hitResult = {} --- @type FHitResult
 
    -- fix rotation
-   local rot = mathlib:FindLookAtRotation(location, getPlanetCenter())
+   local rot = vec3.findLookAtRotation(location, getPlanetCenter())
    actor:K2_SetActorRotation(rot, false)
    actor:K2_AddActorLocalRotation({ Roll = 0, Pitch = 90, Yaw = 0 }, false, hitResult, false)
 
    local rightVector = actor:GetActorRightVector()
-   local cos_angle = getDotProduct(u_unit, rightVector)
+   local cos_angle = vec3.dot(u_unit, vec3.new(rightVector.X, rightVector.Y, rightVector.Z))
    local angle = math.deg(math.acos(cos_angle))
    rot = { Roll = 0, Pitch = 0, Yaw = angle } ---@type FRotator
    actor:K2_AddActorLocalRotation(rot, false, hitResult, false)
@@ -405,42 +467,46 @@ local function snapActorToGrid()
    local hitActor = GetActorFromHitResult(hitResult)
    log.debug(string.format("HitActor: %s\n", hitActor:GetFullName()))
 
-   local p_actor = hitActor:K2_GetActorLocation()
-   local newLoc, u_unit = snapToGrid(ACTOR_REFERENCE_LOCATION, p_actor, ARC_LENGTH, PLANE_ANGLE)
+   local actorLoc = hitActor:K2_GetActorLocation()
+   local p_actor = vec3.new(actorLoc.X, actorLoc.Y, actorLoc.Z)
+
+   local newLoc, u_unit = snapToGrid(actor_reference_location, p_actor, arc_length, plane_angle)
 
    if options.set_new_rotation then
       setNewRotation(hitActor, newLoc, u_unit)
    end
 
    if options.set_new_location then
-      hitActor:K2_SetActorLocation(newLoc, false, sweepHitResult, false)
+      hitActor:K2_SetActorLocation({ X = newLoc.x, Y = newLoc.y, Z = newLoc.z }, false, sweepHitResult, false)
    end
 end
 
 local function initUV()
    -- Initialize U_UNIT and V_UNIT. Required for rotatePlayerTo[Black/Orange]Line functions.
-   if ACTOR_REFERENCE_LOCATION.X ~= nil and ACTOR_REFERENCE_LOCATION.Y ~= nil and ACTOR_REFERENCE_LOCATION.Z ~= nil and PLANE_ANGLE ~= nil and ARC_LENGTH ~= nil then
-      snapToGrid(ACTOR_REFERENCE_LOCATION, ACTOR_REFERENCE_LOCATION, ARC_LENGTH, PLANE_ANGLE)
+   if actor_reference_location.x ~= nil and actor_reference_location.y ~= nil and actor_reference_location.z ~= nil and plane_angle ~= nil and arc_length ~= nil then
+      snapToGrid(actor_reference_location, actor_reference_location, arc_length, plane_angle)
    end
 end
 
 local function rotatePlayerToBlackLine()
-   if U_UNIT.X == V_UNIT.X and U_UNIT.Y == V_UNIT.Y and U_UNIT.Z == V_UNIT.Z then
+   if U_UNIT.x == V_UNIT.x and U_UNIT.y == V_UNIT.y and U_UNIT.z == V_UNIT.z then
       initUV()
    end
 
    local player = UEHelpers:GetPlayer()
-   setNewRotation(player, player:K2_GetActorLocation(), U_UNIT)
+   local playerLoc = player:K2_GetActorLocation()
+   setNewRotation(player, vec3.new(playerLoc.X, playerLoc.Y, playerLoc.Z), U_UNIT)
    log.info("You look in the direction of the BLACK line.")
 end
 
 local function rotatePlayerToOrangeLine()
-   if U_UNIT.X == V_UNIT.X and U_UNIT.Y == V_UNIT.Y and U_UNIT.Z == V_UNIT.Z then
+   if U_UNIT.x == V_UNIT.x and U_UNIT.y == V_UNIT.y and U_UNIT.z == V_UNIT.z then
       initUV()
    end
 
    local player = UEHelpers:GetPlayer()
-   setNewRotation(player, player:K2_GetActorLocation(), V_UNIT)
+   local playerLoc = player:K2_GetActorLocation()
+   setNewRotation(player, vec3.new(playerLoc.X, playerLoc.Y, playerLoc.Z), V_UNIT)
    log.info("You look in the direction of the ORANGE line.")
 end
 
@@ -452,8 +518,10 @@ if options.snap_on_drop then
 
          ---@cast physicalItem APhysicalItem
 
-         local p_actor = physicalItem:K2_GetActorLocation()
-         local newLoc, u_unit = snapToGrid(ACTOR_REFERENCE_LOCATION, p_actor, ARC_LENGTH, PLANE_ANGLE)
+         local actorLoc = physicalItem:K2_GetActorLocation()
+         local p_actor = vec3.new(actorLoc.X, actorLoc.Y, actorLoc.Z)
+
+         local newLoc, u_unit = snapToGrid(actor_reference_location, p_actor, arc_length, plane_angle)
 
          if options.set_new_rotation then
             setNewRotation(physicalItem, newLoc, u_unit)
@@ -508,7 +576,7 @@ RegisterConsoleCommandHandler("angle", function(fullCommand, parameters, outputD
    local helpMsg =
        "Usage: angle <angle in degrees (0 to 360)>\n" ..
        "Example: angle 90\n" ..
-       "Current angle: " .. PLANE_ANGLE
+       "Current angle: " .. plane_angle
 
    if #parameters < 1 then
       outputDevice:Log(helpMsg)
@@ -527,7 +595,7 @@ RegisterConsoleCommandHandler("angle", function(fullCommand, parameters, outputD
       return true
    end
 
-   PLANE_ANGLE = angle
+   plane_angle = angle
    outputDevice:Log("New angle: " .. angle)
 
    writeOptionsFile()
@@ -545,7 +613,7 @@ RegisterConsoleCommandHandler("rloc", function(fullCommand, parameters, outputDe
        "Example: rloc 123500 0 0\n" ..
        "Current actor reference location: " ..
        string.format("%.16g %.16g %.16g",
-          ACTOR_REFERENCE_LOCATION.X, ACTOR_REFERENCE_LOCATION.Y, ACTOR_REFERENCE_LOCATION.Z)
+          actor_reference_location.x, actor_reference_location.y, actor_reference_location.z)
 
    if #parameters < 3 then
       outputDevice:Log(helpMsg)
@@ -561,9 +629,9 @@ RegisterConsoleCommandHandler("rloc", function(fullCommand, parameters, outputDe
       return true
    end
 
-   ACTOR_REFERENCE_LOCATION = { X = x, Y = y, Z = z }
+   actor_reference_location = vec3.new(x, y, z)
    outputDevice:Log(string.format("New actor reference location: %.16g %.16g %.16g",
-      ACTOR_REFERENCE_LOCATION.X, ACTOR_REFERENCE_LOCATION.Y, ACTOR_REFERENCE_LOCATION.Z))
+      actor_reference_location.x, actor_reference_location.y, actor_reference_location.z))
 
    writeOptionsFile()
 
@@ -616,7 +684,7 @@ RegisterConsoleCommandHandler("loc", function(fullCommand, parameters, outputDev
    hitActor:K2_SetActorLocation(newLocation, false, {}, false) ---@diagnostic disable-line: missing-fields
 
    local msg = string.format("New actor location: %.16g %.16g %.16g",
-      newLocation.X, newLocation.Y, newLocation.Z)
+      newLocation.x, newLocation.y, newLocation.z)
    outputDevice:Log(msg)
    log.debug(msg)
 
@@ -631,7 +699,7 @@ RegisterConsoleCommandHandler("arc", function(fullCommand, parameters, outputDev
    local helpMsg =
        "Usage: arc <arc length>\n" ..
        "example: arc 1000\n" ..
-       "Current arc length: " .. ARC_LENGTH
+       "Current arc length: " .. arc_length
 
    if #parameters < 1 then
       outputDevice:Log(helpMsg)
@@ -645,7 +713,7 @@ RegisterConsoleCommandHandler("arc", function(fullCommand, parameters, outputDev
       return true
    end
 
-   ARC_LENGTH = arc
+   arc_length = arc
    outputDevice:Log("New arc length: " .. arc)
 
    writeOptionsFile()
@@ -778,9 +846,9 @@ RegisterConsoleCommandHandler("info", function(fullCommand, parameters, outputDe
       "arc length (arc): %.16g\n" ..
       "plane angle (angle): %.16g\n" ..
       "player location (go): %.16g %.16g %.16g\n",
-      ACTOR_REFERENCE_LOCATION.X, ACTOR_REFERENCE_LOCATION.Y, ACTOR_REFERENCE_LOCATION.Z,
-      ARC_LENGTH,
-      PLANE_ANGLE,
+      actor_reference_location.x, actor_reference_location.y, actor_reference_location.z,
+      arc_length,
+      plane_angle,
       playerLocation.X, playerLocation.Y, playerLocation.Z)
 
    log.info("\n" .. msg)
@@ -836,5 +904,6 @@ RegisterConsoleCommandHandler("set_new_rotation", function(fullCommand, paramete
 end)
 
 -- Uncomment to run tests.
--- SnapToGrid = snapToGrid
--- dofile(currentModDirectory .. "\\Scripts\\tests.lua")
+log.setLevel("WARN", "WARN")
+SnapToGrid = snapToGrid
+dofile(currentModDirectory .. "\\Scripts\\tests.lua")
