@@ -2,6 +2,7 @@
 ---@field Log function
 
 local options = {}
+local Selected = { angle = 0, upOffset = 0 }
 
 local UEHelpers = require("UEHelpers")
 local logging = require("lib.lua-mods-libs.logging")
@@ -175,6 +176,9 @@ local function setActorReferenceLocation()
 
    ---@type AActor
    local hitActor = GetActorFromHitResult(hitResult)
+   if hitActor:IsA("/Script/Astro.SolarBody") then
+      return
+   end
    log.info(string.format("HitActor: %s\n", hitActor:GetFullName()))
 
    local actorLoc = hitActor:K2_GetActorLocation()
@@ -248,13 +252,16 @@ end
 ---@param arcLength number
 ---@param planeAngle number
 ---@return vec3, vec3
-local function snapToGrid(pA_0, p_actor, arcLength, planeAngle)
+local function snapToGrid(pA_0, p_actor, arcLength, planeAngle, custom_n_letter, custom_n_number)
    if pA_0.x == nil or pA_0.y == nil or pA_0.z == nil then
       log.error("You must define an ACTOR_REFERENCE_LOCATION (place the cursor on an object and press F5).")
    end
 
    log.debug("arcLength     " .. arcLength)
    assert(arcLength ~= 0, "arcLength cannot be equal to 0.")
+
+   custom_n_letter = custom_n_letter or 0
+   custom_n_number = custom_n_number or 0
 
    local planetCenter = getPlanetCenter()
    log.debug(string.format("planetCenter     (%.16g, %.16g, %.16g)", planetCenter.x, planetCenter.y, planetCenter.z))
@@ -323,7 +330,7 @@ local function snapToGrid(pA_0, p_actor, arcLength, planeAngle)
    local arcLength_0 = r_0 * angleAlpha
    local roundedArcLength_0 = round(arcLength_0, arcLength)
 
-   local n_number = math.tointeger(round2((roundedArcLength_0 / arcLength) * sign_0, 0))
+   local n_number = math.tointeger(round2((roundedArcLength_0 / arcLength) * sign_0, 0) + custom_n_number)
    assert(n_number ~= nil)
 
    local theta_0 = arcLength / r_0
@@ -344,7 +351,7 @@ local function snapToGrid(pA_0, p_actor, arcLength, planeAngle)
    local arcLength_1 = projectionLength * angleBeta
    local roundedArcLength_1 = round(arcLength_1, arcLength)
 
-   local n_letter = math.tointeger(round2((roundedArcLength_1 / arcLength) * sign_1, 0))
+   local n_letter = math.tointeger(round2((roundedArcLength_1 / arcLength) * sign_1, 0) + custom_n_letter)
    assert(n_letter ~= nil)
 
    local r_N = r_0 * math.cos(n_number * theta_0)
@@ -405,7 +412,7 @@ local function snapToGrid(pA_0, p_actor, arcLength, planeAngle)
 
    log.debug("GeoGebra command (original data):\n\n" .. cmd .. "\n\n")
 
-   log.info(string.format("Arc length between p%s_%s and p%s_%s: %.16g. Difference: %.16g.",
+   log.debug(string.format("Arc length between p%s_%s and p%s_%s: %.16g. Difference: %.16g.",
       base(n_letter, 26), n_number, base(n_letter, 26), n_number_minus1, arcLength_minus1, arcLength_minus1 - arcLength))
 
    --[[ examples:
@@ -465,6 +472,9 @@ local function snapActorToGrid()
 
    ---@type AActor
    local hitActor = GetActorFromHitResult(hitResult)
+   if hitActor:IsA("/Script/Astro.SolarBody") then
+      return
+   end
    log.debug(string.format("HitActor: %s\n", hitActor:GetFullName()))
 
    local actorLoc = hitActor:K2_GetActorLocation()
@@ -533,40 +543,388 @@ if options.snap_on_drop then
       end)
 end
 
-if options.snapActorToGrid_Key ~= nil then
-   if options.snapActorToGrid_ModifierKey ~= nil then
-      RegisterKeyBind(options.snapActorToGrid_Key, { options.snapActorToGrid_ModifierKey }, snapActorToGrid)
-   else
-      RegisterKeyBind(options.snapActorToGrid_Key, snapActorToGrid)
+local function selectActor()
+   ---@type FHitResult
+   ---@diagnostic disable-next-line: missing-fields
+   local hitResult = {}      --- @type FHitResult
+   ---@diagnostic disable-next-line: missing-fields
+   local sweepHitResult = {} --- @type FHitResult
+   local clickableChannel = 4
+
+   local playerController = UEHelpers:GetPlayerController() ---@cast playerController APlayControllerInstance_C
+   playerController:GetHitResultUnderCursorByChannel(clickableChannel, true, hitResult)
+
+   ---@type AActor
+   local hitActor = GetActorFromHitResult(hitResult)
+   if hitActor:IsA("/Script/Astro.SolarBody") then
+      return
+   end
+   log.info(string.format("Select actor: %s\n",
+      hitActor:GetFullName()))
+
+   Selected.actor = hitActor
+
+   -- ---@diagnostic disable-next-line: missing-fields
+   -- Selected.actor:K2_AddActorLocalRotation({ Roll = 0, Pitch = 0, Yaw = Selected.angle }, false, {}, false)
+
+   -- ---@diagnostic disable-next-line: missing-fields
+   -- Selected.actor:K2_AddActorLocalOffset({ X = 0, Y = 0, Z = Selected.upOffset }, false, {}, false)
+
+   -- log.info("Add rotation     %.16g°", Selected.angle)
+   --  log.info("Add up/down offset     %.16g", Selected.upOffset)
+
+   Selected.angle = 0
+   Selected.upOffset = 0
+end
+
+local function selectActorAndApplyLastOffsetAndRotation()
+   ---@type FHitResult
+   ---@diagnostic disable-next-line: missing-fields
+   local hitResult = {}      --- @type FHitResult
+   ---@diagnostic disable-next-line: missing-fields
+   local sweepHitResult = {} --- @type FHitResult
+   local clickableChannel = 4
+
+   local playerController = UEHelpers:GetPlayerController() ---@cast playerController APlayControllerInstance_C
+   playerController:GetHitResultUnderCursorByChannel(clickableChannel, true, hitResult)
+
+   ---@type AActor
+   local hitActor = GetActorFromHitResult(hitResult)
+   if hitActor:IsA("/Script/Astro.SolarBody") then
+      return
+   end
+   log.info(string.format("Select actor: %s\n",
+      hitActor:GetFullName()))
+
+   Selected.actor = hitActor
+
+   ---@diagnostic disable-next-line: missing-fields
+   Selected.actor:K2_AddActorLocalRotation({ Roll = 0, Pitch = 0, Yaw = Selected.angle }, false, {}, false)
+
+   ---@diagnostic disable-next-line: missing-fields
+   Selected.actor:K2_AddActorLocalOffset({ X = 0, Y = 0, Z = Selected.upOffset }, false, {}, false)
+
+   log.info("Add rotation     %.16g°", Selected.angle)
+   log.info("Add up/down offset     %.16g", Selected.upOffset)
+end
+
+local function resetLocalOffsetAndRotation()
+   log.info("Reset up/down offset and angle rotation.")
+
+   ---@diagnostic disable-next-line: missing-fields
+   Selected.actor:K2_AddActorLocalRotation({ Roll = 0, Pitch = 0, Yaw = -Selected.angle }, false, {}, false)
+
+   ---@diagnostic disable-next-line: missing-fields
+   Selected.actor:K2_AddActorLocalOffset({ X = 0, Y = 0, Z = -Selected.upOffset }, false, {}, false)
+
+   log.info("Subtract rotation     %.16g°", Selected.angle)
+   log.info("Subtract up/down offset     %.16g", Selected.upOffset)
+   Selected.angle = 0
+   Selected.upOffset = 0
+end
+
+local function moveActor(n_letter, n_number)
+   local actorLoc = Selected.actor:K2_GetActorLocation()
+   local p_actor = vec3.new(actorLoc.X, actorLoc.Y, actorLoc.Z)
+
+   local newLoc, u_unit = snapToGrid(actor_reference_location, p_actor, arc_length, plane_angle, n_letter, n_number)
+
+   if options.set_new_rotation then
+      setNewRotation(Selected.actor, newLoc, u_unit)
+   end
+
+   ---@diagnostic disable-next-line: missing-fields
+   Selected.actor:K2_SetActorLocation({ X = newLoc.x, Y = newLoc.y, Z = newLoc.z }, false, {}, false)
+
+   ---@diagnostic disable-next-line: missing-fields
+   Selected.actor:K2_AddActorLocalRotation({ Roll = 0, Pitch = 0, Yaw = Selected.angle }, false, {}, false)
+
+   ---@diagnostic disable-next-line: missing-fields
+   Selected.actor:K2_AddActorLocalOffset({ X = 0, Y = 0, Z = Selected.upOffset }, false, {}, false)
+
+   log.info("Add rotation     %.16g°", Selected.angle)
+   log.info("Add up/down offset     %.16g", Selected.upOffset)
+end
+
+local function moveActorUpDown(offset)
+   Selected.upOffset = Selected.upOffset + offset
+   log.info("Up/down offset     %.16g", Selected.upOffset)
+
+   ---@diagnostic disable-next-line: missing-fields
+   Selected.actor:K2_AddActorLocalOffset({ X = 0, Y = 0, Z = offset }, false, {}, false)
+end
+
+local function rotateActor(angle)
+   Selected.angle = Selected.angle + angle
+   log.info(string.format("Rotation angle     %.16g°", Selected.angle))
+
+   ---@diagnostic disable-next-line: missing-fields
+   Selected.actor:K2_AddActorLocalRotation({ Pitch = 0, Roll = 0, Yaw = angle }, false, {}, false)
+end
+
+--#region rotate functions
+
+local function rotateSelectedActorClockwise()
+   rotateActor(options.rotate.normal)
+end
+
+local function rotateSelectedActorCounterclockwise()
+   rotateActor(-options.rotate.normal)
+end
+
+local function rotateSelectedActorClockwise_big()
+   rotateActor(options.rotate.big)
+end
+
+local function rotateSelectedActorCounterclockwise_big()
+   rotateActor(-options.rotate.big)
+end
+
+local function rotateSelectedActorClockwise_very_big()
+   rotateActor(options.rotate.very_big)
+end
+
+local function rotateSelectedActorCounterclockwise_very_big()
+   rotateActor(-options.rotate.very_big)
+end
+
+--#endregion rotate functions
+
+--#region move functions
+
+local function moveSelectedActorBackward()
+   moveActor(0, -options.move.normal)
+end
+
+local function moveSelectedActorLeft()
+   moveActor(options.move.normal, 0)
+end
+
+local function moveSelectedActorRight()
+   moveActor(-options.move.normal, 0)
+end
+
+local function moveSelectedActorForward()
+   moveActor(0, options.move.normal)
+end
+
+local function moveSelectedActorBackward_big()
+   moveActor(0, -options.move.big)
+end
+
+local function moveSelectedActorLeft_big()
+   moveActor(options.move.big, 0)
+end
+
+local function moveSelectedActorRight_big()
+   moveActor(-options.move.big, 0)
+end
+
+local function moveSelectedActorForward_big()
+   moveActor(0, options.move.big)
+end
+
+local function moveSelectedActorBackward_very_big()
+   moveActor(0, -options.move.very_big)
+end
+
+local function moveSelectedActorLeft_very_big()
+   moveActor(options.move.very_big, 0)
+end
+
+local function moveSelectedActorRight_very_big()
+   moveActor(-options.move.very_big, 0)
+end
+
+local function moveSelectedActorForward_very_big()
+   moveActor(0, options.move.very_big)
+end
+
+--#region move up/down
+local function moveSelectedActorUp()
+   moveActorUpDown(options.move.up_down_normal)
+end
+
+local function moveSelectedActorDown()
+   moveActorUpDown(-options.move.up_down_normal)
+end
+
+local function moveSelectedActorUp_big()
+   moveActorUpDown(options.move.up_down_big)
+end
+
+local function moveSelectedActorDown_big()
+   moveActorUpDown(-options.move.up_down_big)
+end
+local function moveSelectedActorUp_very_big()
+   moveActorUpDown(options.move.up_down_very_big)
+end
+
+local function moveSelectedActorDown_very_big()
+   moveActorUpDown(-options.move.up_down_very_big)
+end
+--#endregion
+
+--#endregion move functions
+
+local function registerKeyBind(key, modifierKeys, callback)
+   if key ~= nil then
+      if IsKeyBindRegistered(key, modifierKeys or {}) then
+         error("Key bind is already registered.")
+      end
+
+      if modifierKeys ~= nil and type(modifierKeys) == "table" and #modifierKeys > 0 then
+         RegisterKeyBind(key, modifierKeys, callback)
+      else
+         RegisterKeyBind(key, callback)
+      end
    end
 end
 
-if options.setActorReferenceLocation_Key ~= nil then
-   if options.setActorReferenceLocation_ModifierKey ~= nil then
-      RegisterKeyBind(options.setActorReferenceLocation_Key, { options.setActorReferenceLocation_ModifierKey },
-         setActorReferenceLocation)
-   else
-      RegisterKeyBind(options.setActorReferenceLocation_Key, setActorReferenceLocation)
-   end
-end
+registerKeyBind(options.resetLocalOffsetAndRotation_Key,
+   options.resetLocalOffsetAndRotation_ModifierKeys,
+   resetLocalOffsetAndRotation)
 
-if options.rotatePlayerToBlackLine_Key ~= nil then
-   if options.rotatePlayerToBlackLine_ModifierKey ~= nil then
-      RegisterKeyBind(options.rotatePlayerToBlackLine_Key, { options.rotatePlayerToBlackLine_ModifierKey },
-         rotatePlayerToBlackLine)
-   else
-      RegisterKeyBind(options.rotatePlayerToBlackLine_Key, rotatePlayerToBlackLine)
-   end
-end
+--#region moveSelectedActor
+registerKeyBind(options.move.selectActor_Key,
+   options.move.selectActor_ModifierKeys,
+   selectActor)
 
-if options.rotatePlayerToOrangeLine_Key ~= nil then
-   if options.rotatePlayerToOrangeLine_ModifierKey ~= nil then
-      RegisterKeyBind(options.rotatePlayerToOrangeLine_Key, { options.rotatePlayerToOrangeLine_ModifierKey },
-         rotatePlayerToOrangeLine)
-   else
-      RegisterKeyBind(options.rotatePlayerToOrangeLine_Key, rotatePlayerToOrangeLine)
-   end
-end
+registerKeyBind(options.move.selectActorAndApplyLast_Key,
+   options.move.selectActorAndApplyLast_ModifierKeys,
+   selectActorAndApplyLastOffsetAndRotation)
+
+--#region normal
+registerKeyBind(options.move.forward_Key,
+   options.move.forward_ModifierKeys,
+   moveSelectedActorForward)
+
+registerKeyBind(options.move.backward_Key,
+   options.move.backward_ModifierKeys,
+   moveSelectedActorBackward)
+
+registerKeyBind(options.move.right_Key,
+   options.move.right_ModifierKeys,
+   moveSelectedActorRight)
+
+registerKeyBind(options.move.left_Key,
+   options.move.left_ModifierKeys,
+   moveSelectedActorLeft)
+
+registerKeyBind(options.move.up_Key,
+   options.move.up_ModifierKeys,
+   moveSelectedActorUp)
+
+registerKeyBind(options.move.down_Key,
+   options.move.down_ModifierKeys,
+   moveSelectedActorDown)
+--#endregion
+
+--#region big
+registerKeyBind(options.move.forward_big_Key,
+   options.move.forward_big_ModifierKeys,
+   moveSelectedActorForward_big)
+
+registerKeyBind(options.move.backward_big_Key,
+   options.move.backward_big_ModifierKeys,
+   moveSelectedActorBackward_big)
+
+registerKeyBind(options.move.right_big_Key,
+   options.move.right_big_ModifierKeys,
+   moveSelectedActorRight_big)
+
+registerKeyBind(options.move.left_big_Key,
+   options.move.left_big_ModifierKeys,
+   moveSelectedActorLeft_big)
+
+registerKeyBind(options.move.up_big_Key,
+   options.move.up_big_ModifierKeys,
+   moveSelectedActorUp_big)
+
+registerKeyBind(options.move.down_big_Key,
+   options.move.down_big_ModifierKeys,
+   moveSelectedActorDown_big)
+--#endregion
+
+--#region very_big
+registerKeyBind(options.move.forward_very_big_Key,
+   options.move.forward_very_big_ModifierKeys,
+   moveSelectedActorForward_very_big)
+
+registerKeyBind(options.move.backward_very_big_Key,
+   options.move.backward_very_big_ModifierKeys,
+   moveSelectedActorBackward_very_big)
+
+registerKeyBind(options.move.right_very_big_Key,
+   options.move.right_very_big_ModifierKeys,
+   moveSelectedActorRight_very_big)
+
+registerKeyBind(options.move.left_very_big_Key,
+   options.move.left_very_big_ModifierKeys,
+   moveSelectedActorLeft_very_big)
+
+registerKeyBind(options.move.up_very_big_Key,
+   options.move.up_very_big_ModifierKeys,
+   moveSelectedActorUp_very_big)
+
+registerKeyBind(options.move.down_very_big_Key,
+   options.move.down_very_big_ModifierKeys,
+   moveSelectedActorDown_very_big)
+--#endregion
+
+--#endregion
+
+--#region rotateSelectedActor
+
+--#region normal rotate
+registerKeyBind(options.rotate.clockwise_Key,
+   options.rotate.clockwise_ModifierKeys,
+   rotateSelectedActorClockwise)
+
+registerKeyBind(options.rotate.counterclockwise_Key,
+   options.rotate.counterclockwise_ModifierKeys,
+   rotateSelectedActorCounterclockwise)
+--#endregion
+
+--#region big rotate
+registerKeyBind(options.rotate.clockwise_big_Key,
+   options.rotate.clockwise_big_ModifierKeys,
+   rotateSelectedActorClockwise_big)
+
+registerKeyBind(options.rotate.counterclockwise_big_Key,
+   options.rotate.counterclockwise_big_ModifierKeys,
+   rotateSelectedActorCounterclockwise_big)
+--#endregion
+
+--#region very big rotate
+registerKeyBind(options.rotate.clockwise_very_big_Key,
+   options.rotate.clockwise_very_big_ModifierKeys,
+   rotateSelectedActorClockwise_very_big)
+
+registerKeyBind(options.rotate.counterclockwise_very_big_Key,
+   options.rotate.counterclockwise_very_big_ModifierKeys,
+   rotateSelectedActorCounterclockwise_very_big)
+--#endregion
+
+--#endregion
+
+registerKeyBind(options.snapActorToGrid_Key,
+   options.snapActorToGrid_ModifierKeys,
+   snapActorToGrid)
+
+registerKeyBind(options.setActorReferenceLocation_Key,
+   options.setActorReferenceLocation_ModifierKeys,
+   setActorReferenceLocation)
+
+registerKeyBind(options.rotatePlayerToBlackLine_Key,
+   options.rotatePlayerToBlackLine_ModifierKeys,
+   rotatePlayerToBlackLine)
+
+registerKeyBind(options.rotatePlayerToOrangeLine_Key,
+   options.rotatePlayerToOrangeLine_ModifierKeys,
+   rotatePlayerToOrangeLine)
+
+--#region console commands
 
 ---@param fullCommand string
 ---@param parameters table
@@ -653,6 +1011,9 @@ RegisterConsoleCommandHandler("loc", function(fullCommand, parameters, outputDev
 
    ---@type AActor
    local hitActor = GetActorFromHitResult(hitResult)
+   if hitActor:IsA("/Script/Astro.SolarBody") then
+      return
+   end
    local location = hitActor:K2_GetActorLocation()
 
    local helpMsg =
@@ -755,6 +1116,9 @@ RegisterConsoleCommandHandler("offset", function(fullCommand, parameters, output
 
    ---@type AActor
    local hitActor = GetActorFromHitResult(hitResult)
+   if hitActor:IsA("/Script/Astro.SolarBody") then
+      return
+   end
 
    hitActor:K2_AddActorLocalOffset({ X = x, Y = y, Z = z }, false, hitResult, false)
 
@@ -795,6 +1159,9 @@ RegisterConsoleCommandHandler("rot", function(fullCommand, parameters, outputDev
 
    ---@type AActor
    local hitActor = GetActorFromHitResult(hitResult)
+   if hitActor:IsA("/Script/Astro.SolarBody") then
+      return
+   end
 
    local rot = { Roll = 0, Pitch = 0, Yaw = angle } ---@type FRotator
    hitActor:K2_AddActorLocalRotation(rot, false, hitResult, false)
@@ -903,7 +1270,10 @@ RegisterConsoleCommandHandler("set_new_rotation", function(fullCommand, paramete
    return true
 end)
 
+--#endregion console commands
+
 -- Uncomment to run tests.
-log.setLevel("WARN", "WARN")
-SnapToGrid = snapToGrid
-dofile(currentModDirectory .. "\\Scripts\\tests.lua")
+-- log.setLevel("WARN", "WARN")
+-- SnapToGrid = snapToGrid
+-- dofile(currentModDirectory .. "\\Scripts\\tests.lua")
+-- log.setLevel("INFO", "WARN")
