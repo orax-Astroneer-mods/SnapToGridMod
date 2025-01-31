@@ -770,7 +770,24 @@ end
 local function registerKeyBind(key, modifierKeys, callback)
    if key ~= nil then
       if IsKeyBindRegistered(key, modifierKeys or {}) then
-         error("Key bind is already registered.")
+         local keyName = ""
+         for k, v in pairs(Key) do
+            if key == v then
+               keyName = k
+               break
+            end
+         end
+
+         local modifierKeysList = ""
+         for _, keyValue in ipairs(modifierKeys) do
+            for k, v in pairs(ModifierKey) do
+               if keyValue == v then
+                  modifierKeysList = modifierKeysList .. k .. "+"
+               end
+            end
+         end
+
+         log.warn("Key bind %q is already registered.", modifierKeysList .. keyName)
       end
 
       if modifierKeys ~= nil and type(modifierKeys) == "table" and #modifierKeys > 0 then
@@ -1272,7 +1289,7 @@ end)
 
 --#endregion console commands
 
--- Uncomment to run tests.
+-- Uncomment to run tests. Load a game and restart mods.
 -- log.setLevel("WARN", "WARN")
 -- SnapToGrid = snapToGrid
 -- dofile(currentModDirectory .. "\\Scripts\\tests.lua")
