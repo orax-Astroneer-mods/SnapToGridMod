@@ -9,7 +9,7 @@ https://www.codecademy.com/resources/docs/lua/comments
 
 ## Key and ModifierKey tables
 https://docs.ue4ss.com/lua-api/table-definitions/key.html
-https://docs.ue4ss.com/lua-api/table-definitions/modifierkey.html ]]
+https://docs.ue4ss.com/lua-api/table-definitions/modifierkey.html
 --]]
 
 -- ALL TRACE DEBUG INFO WARN ERROR FATAL OFF

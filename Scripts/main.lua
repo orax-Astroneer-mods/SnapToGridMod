@@ -55,8 +55,7 @@ local function loadParameters()
    dofile(file)
 end
 
--- Initialization
-
+--#region Initialization
 LOG_LEVEL = "INFO" ---@type _LogLevel
 MIN_LEVEL_OF_FATAL_ERROR = "ERROR" ---@type _LogLevel
 
@@ -75,40 +74,9 @@ local arc_length = ARC_LENGTH ---@type number Orange arc of circles.
 local plane_angle = PLANE_ANGLE ---@type number
 local U_UNIT = vec3.new(0, 0, 0)
 local V_UNIT = vec3.new(0, 0, 0)
+--#endregion
 
 --------------------------------------------------
----
-------@param v FVector
----@return number
-local function getVectorLength(v)
-   return math.sqrt((v.x * v.x) + (v.y * v.y) + (v.z * v.z))
-end
-
----@param v vec3
----@return vec3
-local function normalizeVector(v)
-   local norm = getVectorLength(v)
-
-   if norm > 0 then
-      return vec3.new(v.x / norm, v.y / norm, v.z / norm)
-   end
-
-   return v
-end
-
----@param v1 vec3
----@param v2 vec3
----@return number
-local function getDotProduct(v1, v2)
-   return (v1.x * v2.x) + (v1.y * v2.y) + (v1.z * v2.z)
-end
-
----@param v1 vec3
----@param v2 vec3
----@return number
-local function getAngleBetweenVectors(v1, v2)
-   return math.acos(getDotProduct(normalizeVector(v1), normalizeVector(v2)))
-end
 
 ---@param point vec3
 ---@param planeBase vec3
@@ -563,15 +531,6 @@ local function selectActor()
       hitActor:GetFullName()))
 
    Selected.actor = hitActor
-
-   -- ---@diagnostic disable-next-line: missing-fields
-   -- Selected.actor:K2_AddActorLocalRotation({ Roll = 0, Pitch = 0, Yaw = Selected.angle }, false, {}, false)
-
-   -- ---@diagnostic disable-next-line: missing-fields
-   -- Selected.actor:K2_AddActorLocalOffset({ X = 0, Y = 0, Z = Selected.upOffset }, false, {}, false)
-
-   -- log.info("Add rotation     %.16g°", Selected.angle)
-   --  log.info("Add up/down offset     %.16g", Selected.upOffset)
 
    Selected.angle = 0
    Selected.upOffset = 0
