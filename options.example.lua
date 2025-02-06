@@ -17,24 +17,28 @@ LOG_LEVEL = "INFO" ---@type _LogLevel
 MIN_LEVEL_OF_FATAL_ERROR = "ERROR" ---@type _LogLevel
 
 local options = {
+    -- The method (grid or circular) determines how objects will be "snapped".
+    method = "grid", -- grid | circular
+
     -- Should the object automatically snap to the grid when dropped?
     snap_on_drop = false, -- true | false (default)
 
     -- Keybind to snap and rotate the object to the grid.
     snapActorToGrid_Key = Key.F4,
-    -- snapActorToGrid_ModifierKeys = { ModifierKey.CONTROL },
+    snapActorToGrid_ModifierKeys = {},
 
-    -- Behavior when you press the `snapActorToGrid_Key` key (F4 by default).
-    -- The object will be snapped to the grid. The location will be changed.
+    -- "set_new_location" changes the behavior when you press the "snapActorToGrid_Key" key (F4 by default).
+    -- If "true", the object will be snapped to the grid; the location of the object will be changed.
     set_new_location = true, -- true (default) | false
-    -- The rotation of the object will be corrected to be tangent
-    -- to the planet and will be aligned to the grid.
+
+    -- "set_new_rotation" changes the behavior when you press the "snapActorToGrid_Key" key (F4 by default).
+    -- If "true", the rotation of the object will be corrected to be tangent to the planet; the rotation of the object will be changed.
     set_new_rotation = true, -- true (default, recommended) | false
 
     -- Keybind to select an object to use as a reference for the location.
     -- This object will be in the center of the grid.
     setActorReferenceLocation_Key = Key.F5,
-    -- setActorReferenceLocation_ModifierKeys = { ModifierKey.ALT },
+    setActorReferenceLocation_ModifierKeys = {},
 
     -- Keybinds to rotate the player to the black and orange lines (arc circles).
     -- See the GeoGebra simulation.
@@ -74,6 +78,10 @@ move.selectActor_ModifierKeys = {}
 -- and rotation of the last selected object.
 move.selectActorAndApplyLast_Key = Key.NUM_FIVE
 move.selectActorAndApplyLast_ModifierKeys = { ModifierKey.CONTROL }
+
+-- Keybind to move selected object to the actor reference location.
+move.selectedActorToRefActorLoc_Key = Key.NUM_FIVE
+move.selectedActorToRefActorLoc_ModifierKeys = { ModifierKey.ALT }
 
 -- Keybinds for NORMAL movements. 🠉 🠋 🠈 🠊
 move.forward_Key = Key.NUM_EIGHT
