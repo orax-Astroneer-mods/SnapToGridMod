@@ -420,9 +420,17 @@ local function registerKeyBind(key, modifierKeys, callback)
       end
 
       if modifierKeys ~= nil and type(modifierKeys) == "table" and #modifierKeys > 0 then
-         RegisterKeyBind(key, modifierKeys, callback)
+         RegisterKeyBind(key, modifierKeys, function()
+            ExecuteInGameThread(function()
+               callback()
+            end)
+         end)
       else
-         RegisterKeyBind(key, callback)
+         RegisterKeyBind(key, function()
+            ExecuteInGameThread(function()
+               callback()
+            end)
+         end)
       end
    end
 end
