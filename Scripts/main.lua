@@ -63,7 +63,7 @@ local vec3 = Vec3
 U_UNIT = vec3.new(0, 0, 0)
 V_UNIT = vec3.new(0, 0, 0)
 
-local Selected = { angle = 0, upOffset = 0 } -- selected actor
+local Selected = { actor = CreateInvalidObject(), angle = 0, upOffset = 0 } -- selected actor
 
 loadMethod(options.method)
 
@@ -78,11 +78,11 @@ local function setActorReferenceLocation()
    local playerController = UEHelpers:GetPlayerController() ---@cast playerController APlayControllerInstance_C
    playerController:GetHitResultUnderCursorByChannel(clickableChannel, false, hitResult)
 
-   ---@type AActor
-   local hitActor = GetActorFromHitResult(hitResult)
-   if hitActor:IsA("/Script/Astro.SolarBody") then
+   local hitActor = UEHelpers.GetActorFromHitResult(hitResult)
+   if not hitActor:IsValid() or hitActor:IsA("/Script/Astro.SolarBody") then
       return
-   end
+   end ---@cast hitActor AActor
+
    log.info(string.format("HitActor: %s\n", hitActor:GetFullName()))
 
    local u = hitActor:K2_GetActorLocation()
@@ -118,11 +118,11 @@ local function snapActorToGrid()
    local playerController = UEHelpers:GetPlayerController() ---@cast playerController APlayControllerInstance_C
    playerController:GetHitResultUnderCursorByChannel(clickableChannel, false, hitResult) -- bTraceComplex false: less crashes?
 
-   ---@type AActor
-   local hitActor = GetActorFromHitResult(hitResult)
-   if hitActor:IsA("/Script/Astro.SolarBody") then
+   local hitActor = UEHelpers.GetActorFromHitResult(hitResult)
+   if not hitActor:IsValid() or hitActor:IsA("/Script/Astro.SolarBody") then
       return
-   end
+   end ---@cast hitActor AActor
+
    log.debug(string.format("HitActor: %s\n", hitActor:GetFullName()))
 
    local actorLoc = hitActor:K2_GetActorLocation()
@@ -177,19 +177,17 @@ end
 local function selectActor()
    ---@type FHitResult
    ---@diagnostic disable-next-line: missing-fields
-   local hitResult = {}      --- @type FHitResult
-   ---@diagnostic disable-next-line: missing-fields
-   local sweepHitResult = {} --- @type FHitResult
+   local hitResult = {} --- @type FHitResult
    local clickableChannel = 4
 
    local playerController = UEHelpers:GetPlayerController() ---@cast playerController APlayControllerInstance_C
    playerController:GetHitResultUnderCursorByChannel(clickableChannel, false, hitResult)
 
-   ---@type AActor
-   local hitActor = GetActorFromHitResult(hitResult)
-   if hitActor:IsA("/Script/Astro.SolarBody") then
+   local hitActor = UEHelpers.GetActorFromHitResult(hitResult)
+   if not hitActor:IsValid() or hitActor:IsA("/Script/Astro.SolarBody") then
       return
-   end
+   end ---@cast hitActor AActor
+
    log.info(string.format("Select actor: %s\n",
       hitActor:GetFullName()))
 
@@ -202,19 +200,17 @@ end
 local function selectActorAndApplyLastOffsetAndRotation()
    ---@type FHitResult
    ---@diagnostic disable-next-line: missing-fields
-   local hitResult = {}      --- @type FHitResult
-   ---@diagnostic disable-next-line: missing-fields
-   local sweepHitResult = {} --- @type FHitResult
+   local hitResult = {} --- @type FHitResult
    local clickableChannel = 4
 
    local playerController = UEHelpers:GetPlayerController() ---@cast playerController APlayControllerInstance_C
    playerController:GetHitResultUnderCursorByChannel(clickableChannel, false, hitResult)
 
-   ---@type AActor
-   local hitActor = GetActorFromHitResult(hitResult)
-   if hitActor:IsA("/Script/Astro.SolarBody") then
+   local hitActor = UEHelpers.GetActorFromHitResult(hitResult)
+   if not hitActor:IsValid() or hitActor:IsA("/Script/Astro.SolarBody") then
       return
-   end
+   end ---@cast hitActor AActor
+
    log.info(string.format("Select actor: %s\n",
       hitActor:GetFullName()))
 
@@ -231,6 +227,10 @@ local function selectActorAndApplyLastOffsetAndRotation()
 end
 
 local function moveSelectedActorToRefActorLoc()
+   if not Selected.actor:IsValid() then
+      return
+   end
+
    Selected.actor:K2_SetActorLocation(
       {
          X = PARAMS.ACTOR_REF_LOC.x,
@@ -241,6 +241,10 @@ local function moveSelectedActorToRefActorLoc()
 end
 
 local function resetLocalOffsetAndRotation()
+   if not Selected.actor:IsValid() then
+      return
+   end
+
    log.info("Reset up/down offset and angle rotation.")
 
    ---@diagnostic disable-next-line: missing-fields
@@ -256,6 +260,10 @@ local function resetLocalOffsetAndRotation()
 end
 
 local function moveActor(n_letter, n_number)
+   if not Selected.actor:IsValid() then
+      return
+   end
+
    local actorLoc = Selected.actor:K2_GetActorLocation()
    local p_actor = vec3.new(actorLoc.X, actorLoc.Y, actorLoc.Z)
 
@@ -275,6 +283,10 @@ local function moveActor(n_letter, n_number)
 end
 
 local function moveActorUpDown(offset)
+   if not Selected.actor:IsValid() then
+      return
+   end
+
    Selected.upOffset = Selected.upOffset + offset
    log.info("Up/down offset     %.16g", Selected.upOffset)
 
@@ -283,6 +295,10 @@ local function moveActorUpDown(offset)
 end
 
 local function rotateActor(angle)
+   if not Selected.actor:IsValid() then
+      return
+   end
+
    Selected.angle = Selected.angle + angle
    log.info(string.format("Rotation angle     %.16g°", Selected.angle))
 
@@ -859,8 +875,11 @@ RegisterConsoleCommandHandler("loc", function(fullCommand, parameters, outputDev
    local playerController = UEHelpers:GetPlayerController() ---@cast playerController APlayControllerInstance_C
    playerController:GetHitResultUnderCursorByChannel(clickableChannel, false, hitResult)
 
-   ---@type AActor
-   local hitActor = GetActorFromHitResult(hitResult)
+   local hitActor = UEHelpers.GetActorFromHitResult(hitResult)
+   if not hitActor:IsValid() or hitActor:IsA("/Script/Astro.SolarBody") then
+      return
+   end ---@cast hitActor AActor
+
    local location = hitActor:K2_GetActorLocation()
 
    local helpMsg =
@@ -936,11 +955,10 @@ RegisterConsoleCommandHandler("offset", function(fullCommand, parameters, output
    local playerController = UEHelpers:GetPlayerController() ---@cast playerController APlayControllerInstance_C
    playerController:GetHitResultUnderCursorByChannel(clickableChannel, false, hitResult)
 
-   ---@type AActor
-   local hitActor = GetActorFromHitResult(hitResult)
-   if hitActor:IsA("/Script/Astro.SolarBody") then
+   local hitActor = UEHelpers.GetActorFromHitResult(hitResult)
+   if not hitActor:IsValid() or hitActor:IsA("/Script/Astro.SolarBody") then
       return
-   end
+   end ---@cast hitActor AActor
 
    hitActor:K2_AddActorLocalOffset({ X = x, Y = y, Z = z }, false, hitResult, false)
 
@@ -979,11 +997,10 @@ RegisterConsoleCommandHandler("rot", function(fullCommand, parameters, outputDev
    local playerController = UEHelpers:GetPlayerController() ---@cast playerController APlayControllerInstance_C
    playerController:GetHitResultUnderCursorByChannel(clickableChannel, false, hitResult)
 
-   ---@type AActor
-   local hitActor = GetActorFromHitResult(hitResult)
-   if hitActor:IsA("/Script/Astro.SolarBody") then
+   local hitActor = UEHelpers.GetActorFromHitResult(hitResult)
+   if not hitActor:IsValid() or hitActor:IsA("/Script/Astro.SolarBody") then
       return
-   end
+   end ---@cast hitActor AActor
 
    local rot = { Roll = 0, Pitch = 0, Yaw = angle } ---@type FRotator
    hitActor:K2_AddActorLocalRotation(rot, false, hitResult, false)
