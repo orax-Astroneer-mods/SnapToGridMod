@@ -185,6 +185,8 @@ local function selectActor()
 
    local hitActor = UEHelpers.GetActorFromHitResult(hitResult)
    if not hitActor:IsValid() or hitActor:IsA("/Script/Astro.SolarBody") then
+      Selected.actor = CreateInvalidObject()
+      log.info(string.format("The selected actor is deselected."))
       return
    end ---@cast hitActor AActor
 
@@ -208,6 +210,8 @@ local function selectActorAndApplyLastOffsetAndRotation()
 
    local hitActor = UEHelpers.GetActorFromHitResult(hitResult)
    if not hitActor:IsValid() or hitActor:IsA("/Script/Astro.SolarBody") then
+      Selected.actor = CreateInvalidObject()
+      log.info(string.format("The selected actor is deselected."))
       return
    end ---@cast hitActor AActor
 
