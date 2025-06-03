@@ -17,7 +17,7 @@ function isFileExists(filename)
 end
 
 function getParamsFile()
-    local currentDirectory = debug.getinfo(2, "S").source:match([[@?(.+\Mods\[^\\]+\Scripts\methods\[^\]+)]])
+    local currentDirectory = debug.getinfo(2, "S").source:match("@?(.+\\[Ss]cripts\\methods\\[^\\]+)")
     local file = currentDirectory .. "\\params.lua"
 
     if not isFileExists(file) then

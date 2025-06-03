@@ -7,7 +7,7 @@ require("func")
 
 --#region Initialization
 
-local currentModDirectory = debug.getinfo(1, "S").source:match("@?(.+\\Mods\\[^\\]+)")
+local currentModDirectory = debug.getinfo(1, "S").source:match("@?(.+)\\[Ss]cripts\\")
 
 -- functions implemented in the method file
 local snapToGrid, writeParamsFile, onSetActorReference, getDirection1, getDirection2
