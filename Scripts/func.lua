@@ -1,8 +1,8 @@
 ---@diagnostic disable: lowercase-global
 
 local UEHelpers = require("UEHelpers")
-modules = "lib.LEEF-math.modules." ---@diagnostic disable-line: lowercase-global
-local vec3 = require("lib.LEEF-math.modules.vec3")
+modules = "Scripts.lib.LEEF-math.modules." ---@diagnostic disable-line: lowercase-global
+local vec3 = require("Scripts.lib.LEEF-math.modules.vec3")
 
 ---@param filename string
 ---@return boolean
@@ -17,7 +17,7 @@ function isFileExists(filename)
 end
 
 function getParamsFile()
-    local currentDirectory = debug.getinfo(2, "S").source:match("@?(.+\\[Ss]cripts\\methods\\[^\\]+)")
+    local currentDirectory = debug.getinfo(2, "S").source:gsub("\\", "/"):match("@?(.+/[Ss]cripts/methods/[^/]+)")
     local file = currentDirectory .. "\\params.lua"
 
     if not isFileExists(file) then

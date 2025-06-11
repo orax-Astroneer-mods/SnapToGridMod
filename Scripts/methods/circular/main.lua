@@ -1,5 +1,5 @@
 local UEHelpers = require("UEHelpers")
-require("func")
+require("Scripts.func")
 
 --#region Initialization
 

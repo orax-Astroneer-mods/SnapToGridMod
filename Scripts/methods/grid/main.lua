@@ -1,5 +1,5 @@
 local UEHelpers = require("UEHelpers")
-require("func")
+require("Scripts.func")
 
 --#region Initialization
 
@@ -293,10 +293,10 @@ ROTATION_ANGLE=%.16g
 end
 
 -- Uncomment to run tests. Load a game and restart mods.
--- local currentModDirectory = debug.getinfo(1, "S").source:match("@?(.+\\methods\\[^\\]+)")
+-- local currentModDirectory = debug.getinfo(1, "S").source:match("@?(.+/methods/[^/]+)")
 -- log.setLevel("WARN", "WARN")
 -- SnapToGrid = snapToGrid
--- dofile(currentModDirectory .. "\\tests.lua")
+-- dofile(currentModDirectory .. "/tests.lua")
 -- log.setLevel("INFO", "WARN")
 
 return {

@@ -1,4 +1,4 @@
-local vec3 = require("lib.LEEF-math.modules.vec3")
+local vec3 = require("Scripts.lib.LEEF-math.modules.vec3")
 
 local params_backup = PARAMS
 
