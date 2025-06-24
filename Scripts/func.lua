@@ -1,8 +1,8 @@
 ---@diagnostic disable: lowercase-global
 
 local UEHelpers = require("UEHelpers")
-modules = "Scripts.lib.LEEF-math.modules." ---@diagnostic disable-line: lowercase-global
-local vec3 = require("Scripts.lib.LEEF-math.modules.vec3")
+modules = "lib.LEEF-math.modules." ---@diagnostic disable-line: lowercase-global
+local vec3 = require("lib.LEEF-math.modules.vec3")
 
 ---@param filename string
 ---@return boolean

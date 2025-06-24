@@ -2,8 +2,8 @@
 ---@field Log function
 
 local UEHelpers = require("UEHelpers")
-local logging = require("Scripts.lib.lua-mods-libs.logging")
-require("Scripts.func")
+local logging = require("lib.lua-mods-libs.logging")
+require("func")
 
 --#region Initialization
 
@@ -56,8 +56,8 @@ local log = Log
 LOG_LEVEL, MIN_LEVEL_OF_FATAL_ERROR = nil, nil
 
 PARAMS = nil
-modules = "Scripts.lib.LEEF-math.modules." ---@diagnostic disable-line: lowercase-global
-Vec3 = require("Scripts.lib.LEEF-math.modules.vec3")
+modules = "lib.LEEF-math.modules." ---@diagnostic disable-line: lowercase-global
+Vec3 = require("lib.LEEF-math.modules.vec3")
 local vec3 = Vec3
 
 U_UNIT = vec3.new(0, 0, 0)
