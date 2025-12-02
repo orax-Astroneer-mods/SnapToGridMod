@@ -5,6 +5,20 @@ local UEHelpers = require("UEHelpers")
 local logging = require("lib.lua-mods-libs.logging")
 require("func")
 
+-- temporary fix for UE4SS_v3.0.1-357-g0271db8
+local function GetActorFromHitResult(HitResult)
+   if not HitResult then
+      return CreateInvalidObject()
+   end
+
+   if UnrealVersion:IsBelow(5, 0) then
+      return HitResult.Actor:Get()
+   elseif UnrealVersion:IsBelow(5, 4) then
+      return HitResult.HitObjectHandle.Actor:Get()
+   end
+   return HitResult.HitObjectHandle.ReferenceObject:Get()
+end
+
 --#region Initialization
 
 local currentModDirectory = debug.getinfo(1, "S").source:gsub("\\", "/"):match("@?(.+)/[Ss]cripts/")
@@ -78,7 +92,7 @@ local function setActorReferenceLocation()
    local playerController = UEHelpers:GetPlayerController() ---@cast playerController APlayControllerInstance_C
    playerController:GetHitResultUnderCursorByChannel(clickableChannel, false, hitResult)
 
-   local hitActor = UEHelpers.GetActorFromHitResult(hitResult)
+   local hitActor = GetActorFromHitResult(hitResult)
    if not hitActor:IsValid() or hitActor:IsA("/Script/Astro.SolarBody") then
       return
    end ---@cast hitActor AActor
@@ -118,7 +132,7 @@ local function snapActorToGrid()
    local playerController = UEHelpers:GetPlayerController() ---@cast playerController APlayControllerInstance_C
    playerController:GetHitResultUnderCursorByChannel(clickableChannel, false, hitResult) -- bTraceComplex false: less crashes?
 
-   local hitActor = UEHelpers.GetActorFromHitResult(hitResult)
+   local hitActor = GetActorFromHitResult(hitResult)
    if not hitActor:IsValid() or hitActor:IsA("/Script/Astro.SolarBody") then
       return
    end ---@cast hitActor AActor
@@ -183,7 +197,7 @@ local function selectActor()
    local playerController = UEHelpers:GetPlayerController() ---@cast playerController APlayControllerInstance_C
    playerController:GetHitResultUnderCursorByChannel(clickableChannel, false, hitResult)
 
-   local hitActor = UEHelpers.GetActorFromHitResult(hitResult)
+   local hitActor = GetActorFromHitResult(hitResult)
    if not hitActor:IsValid() or hitActor:IsA("/Script/Astro.SolarBody") then
       Selected.actor = CreateInvalidObject()
       log.info(string.format("The selected actor is deselected."))
@@ -208,7 +222,7 @@ local function selectActorAndApplyLastOffsetAndRotation()
    local playerController = UEHelpers:GetPlayerController() ---@cast playerController APlayControllerInstance_C
    playerController:GetHitResultUnderCursorByChannel(clickableChannel, false, hitResult)
 
-   local hitActor = UEHelpers.GetActorFromHitResult(hitResult)
+   local hitActor = GetActorFromHitResult(hitResult)
    if not hitActor:IsValid() or hitActor:IsA("/Script/Astro.SolarBody") then
       Selected.actor = CreateInvalidObject()
       log.info(string.format("The selected actor is deselected."))
@@ -879,7 +893,7 @@ RegisterConsoleCommandHandler("loc", function(fullCommand, parameters, outputDev
    local playerController = UEHelpers:GetPlayerController() ---@cast playerController APlayControllerInstance_C
    playerController:GetHitResultUnderCursorByChannel(clickableChannel, false, hitResult)
 
-   local hitActor = UEHelpers.GetActorFromHitResult(hitResult)
+   local hitActor = GetActorFromHitResult(hitResult)
    if not hitActor:IsValid() or hitActor:IsA("/Script/Astro.SolarBody") then
       return
    end ---@cast hitActor AActor
@@ -959,7 +973,7 @@ RegisterConsoleCommandHandler("offset", function(fullCommand, parameters, output
    local playerController = UEHelpers:GetPlayerController() ---@cast playerController APlayControllerInstance_C
    playerController:GetHitResultUnderCursorByChannel(clickableChannel, false, hitResult)
 
-   local hitActor = UEHelpers.GetActorFromHitResult(hitResult)
+   local hitActor = GetActorFromHitResult(hitResult)
    if not hitActor:IsValid() or hitActor:IsA("/Script/Astro.SolarBody") then
       return
    end ---@cast hitActor AActor
@@ -1001,7 +1015,7 @@ RegisterConsoleCommandHandler("rot", function(fullCommand, parameters, outputDev
    local playerController = UEHelpers:GetPlayerController() ---@cast playerController APlayControllerInstance_C
    playerController:GetHitResultUnderCursorByChannel(clickableChannel, false, hitResult)
 
-   local hitActor = UEHelpers.GetActorFromHitResult(hitResult)
+   local hitActor = GetActorFromHitResult(hitResult)
    if not hitActor:IsValid() or hitActor:IsA("/Script/Astro.SolarBody") then
       return
    end ---@cast hitActor AActor
