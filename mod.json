@@ -1,8 +1,8 @@
 {
     "$schema": "./resources/schema.json",
     "author": "orax",
-    "canonical_name": "",
-    "description": "",
+    "canonical_name": "SnapToGrid",
+    "description": "Allows you to align objects to a grid.",
     "homepage": "https://www.nexusmods.com/profile/0R4X/mods?gameId=1955",
-    "name": ""
+    "name": "Snap to Grid"
 }
