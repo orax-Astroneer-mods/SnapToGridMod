@@ -1,3 +1,15 @@
+/.LOCAL
+/.RELEASE
+/.TEST
+/.TEMP
+
 options.lua
+options.dev.lua
 params.lua
-enabled.txt
+params.dev.lua
+
+todo.md
+
+.vscode
+.secrets
+.env
