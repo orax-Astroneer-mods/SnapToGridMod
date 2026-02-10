@@ -1,0 +1,13 @@
+{
+  "mods": {
+    "SnapToGridMod": {
+      "latest_version": "0.3.7",
+      "versions": {
+        "0.3.7": {
+          "download_url": "https://github.com/orax-Astroneer-mods/SnapToGridMod/releases/download/v0.3.7/000-SnapToGridMod-0.3.7_P.pak",
+          "filename": "000-SnapToGridMod-0.3.7_P.pak"
+        }
+      }
+    }
+  }
+}
