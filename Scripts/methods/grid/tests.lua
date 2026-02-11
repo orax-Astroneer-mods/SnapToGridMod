@@ -1,5 +1,7 @@
 local vec3 = require("lib.LEEF-math.modules.vec3")
 
+SnapToGrid = SnapToGrid
+
 local params_backup = PARAMS
 
 ---@param v vec3
