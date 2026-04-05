@@ -4,30 +4,36 @@ local UEHelpers = require("UEHelpers")
 modules = "lib.LEEF-math.modules." ---@diagnostic disable-line: lowercase-global
 local vec3 = require("lib.LEEF-math.modules.vec3")
 
----@param filename string
----@return boolean
-function isFileExists(filename)
-    local file = io.open(filename, "r")
+local format = string.format
+
+---Check if a file exists and is readable at the specified path.
+---@param fileName string The path to the file to check.
+---@return boolean exists True if the file exists and can be opened, false otherwise.
+---@nodiscard
+function doesFileExist(fileName)
+    local file = io.open(fileName, "r")
+
     if file ~= nil then
-        io.close(file)
+        file:close()
         return true
-    else
-        return false
     end
+
+    return false
 end
 
 function getParamsFile()
-    local currentDirectory = debug.getinfo(2, "S").source:gsub("\\", "/"):match("@?(.+/[Ss]cripts/methods/[^/]+)")
-    local file = currentDirectory .. "\\params.lua"
+    local currentDirectory =
+        debug.getinfo(2, "S").source:gsub("\\", "/"):match("@?(.+/[Ss]cripts/methods/[^/]+)")
+    local file = currentDirectory .. "/params.lua"
 
-    if not isFileExists(file) then
-        local cmd = string.format([[copy "%s\params.example.lua" "%s\params.lua"]],
-            currentDirectory,
-            currentDirectory)
+    if not doesFileExist(file) then
+        print("Copy example params to params.lua.\n")
 
-        print("Copy example params to params.lua. Execute command: " .. cmd .. "\n")
-
-        os.execute(cmd)
+        local success, err = copyFile(currentDirectory .. "/params.example.lua",
+            currentDirectory .. "/params.lua")
+        if not success then
+            error(err)
+        end
     end
 
     return file
@@ -89,9 +95,7 @@ end
 ---@param num number
 ---@param base number
 ---@return number
-function roundToBase(num, base)
-    return math.floor(num / base + 0.5) * base
-end
+function roundToBase(num, base) return math.floor(num / base + 0.5) * base end
 
 ---Normalize angle between -180 and 180.
 ---@param a number Angle in degrees.
@@ -156,7 +160,9 @@ end
 ---@return string
 function base(n, b)
     n = math.floor(n)
-    if not b or b == 10 then return tostring(n) end
+    if not b or b == 10 then
+        return tostring(n)
+    end
     local letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     local t = {}
     local sign = ""
@@ -200,4 +206,41 @@ print(math.acos(c)) -- -nan(ind)
 See also: ---https://fr.mathworks.com/matlabcentral/answers/101590-how-can-i-determine-the-angle-between-two-vectors-in-matlab ]]
     local v = math.max(-1, math.min(1, a:normalize():dot(b:normalize())))
     return math.acos(v)
+end
+
+---Detect whether the current runtime path separator is Windows-style.
+---@return boolean isWindows `true` when running on Windows, otherwise `false`.
+---@nodiscard
+function isWindows() return package.config:sub(1, 1) == "\\" end
+
+---Copy a file from a source path to a destination path.
+---@param source string The path of the file to copy.
+---@param destination string The path where the copy will be created.
+---@return boolean success True on success.
+---@return string|nil errorMessage False and an error message on failure.
+function copyFile(source, destination)
+    -- Open the source file in binary read mode.
+    local srcFile, errSrc = io.open(source, "rb")
+    if not srcFile then
+        return false, format("Failed to open source file '%s'. %s", source, errSrc)
+    end
+
+    local content = srcFile:read("a")
+    srcFile:close()
+
+    local destFile, errDst = io.open(destination, "wb")
+    if not destFile then
+        return false, format("Failed to open destination file '%s'. %s", destination, errDst)
+    end
+
+    destFile, errDst = destFile:write(content)
+    if not destFile then
+        return false, format("Failed to write destination file '%s'. %s", destination, errDst)
+    end
+
+    if not destFile:close() then
+        return false, format("Unable to close destination file '%s'. %s", destination, errDst)
+    end
+
+    return true
 end
